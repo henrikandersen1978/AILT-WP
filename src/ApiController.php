@@ -59,7 +59,8 @@ class ApiController
             wp_update_post([
                 'ID' => $post_id,
                 'post_title' => $data->title,
-                'post_content' => $data->content
+                'post_content' => $data->content,
+                'post_date' => $data->publish_at ? date('Y-m-d H:i:s', strtotime($data->publish_at)) : date('Y-m-d H:i:s'),
             ]);
         } else {
             $post_id = wp_insert_post([
@@ -67,6 +68,7 @@ class ApiController
                 'post_status' => 'publish',
                 'post_content' => $data->content,
                 'post_type' => 'post',
+                'post_date' => $data->publish_at ? date('Y-m-d H:i:s', strtotime($data->publish_at)) : date('Y-m-d H:i:s'),
             ]);
             add_post_meta($post_id, 'ailt_id', $data->article_id);
         }
