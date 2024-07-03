@@ -41,8 +41,6 @@ class ApiController
             return;
         }
 
-        $status = ['status' => 'success'];
-
 
         $json = file_get_contents('php://input');
         $data = json_decode($json);
@@ -85,14 +83,26 @@ class ApiController
             wp_set_post_categories($post_id, [$category_id]);
         }
 
-        // Set the featured image
         if (!empty($data->featured_image)) {
             $attachment_id = $this->download_image($data->featured_image->url, $post_id);
             set_post_thumbnail($post_id, $attachment_id);
         }
 
+        // if the site has Yoast SEO installed
+        if (function_exists('wpseo_replace_vars')) {
+            $post = get_post($post_id);
+            $seo_title = wpseo_replace_vars($data->title, $post);
+            $seo_description = wpseo_replace_vars($data->meta_description, $post);
+            update_post_meta($post_id, '_yoast_wpseo_title', $seo_title);
+            update_post_meta($post_id, '_yoast_wpseo_metadesc', $seo_description);
+        }
+
         status_header(201);
-        echo json_encode($status);
+        echo json_encode([
+            'status' => 'success',
+            'post_id' => $post_id,
+            'url' => get_permalink($post_id),
+        ]);
         die;
     }
 
