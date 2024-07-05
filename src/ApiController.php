@@ -9,6 +9,7 @@ class ApiController
     {
         add_action('template_redirect', [$this, 'webhook']);
         add_action('template_redirect', [$this, 'categories']);
+        add_action('template_redirect', [$this, 'authors']);
     }
 
     public function categories()
@@ -16,8 +17,6 @@ class ApiController
         if (strpos($_SERVER['REQUEST_URI'], '/ailt/categories') === false) {
             return;
         }
-
-        $status = ['status' => 'success'];
 
         $categories = get_categories([
             'hide_empty' => false,
@@ -32,6 +31,28 @@ class ApiController
 
         status_header(200);
         echo json_encode($categories);
+        die;
+    }
+
+    public function authors()
+    {
+        if (strpos($_SERVER['REQUEST_URI'], '/ailt/authors') === false) {
+            return;
+        }
+
+        $authors = get_users([
+            'capability__in' => 'publish_posts'
+        ]);
+
+        $authors = array_map(function ($author) {
+            return [
+                'id' => $author->ID,
+                'name' => $author->display_name,
+            ];
+        }, $authors);
+
+        status_header(200);
+        echo json_encode($authors);
         die;
     }
 
@@ -59,9 +80,11 @@ class ApiController
                 'post_title' => $data->title,
                 'post_content' => $data->content,
                 'post_date' => $data->publish_at ? date('Y-m-d H:i:s', strtotime($data->publish_at)) : date('Y-m-d H:i:s'),
+                'post_author' => $data->author_id,
             ]);
         } else {
             $post_id = wp_insert_post([
+                'post_author' => $data->author_id,
                 'post_title' => $data->title,
                 'post_status' => 'publish',
                 'post_content' => $data->content,

@@ -4,7 +4,7 @@
 Plugin Name: Ailt WP Plugin
 Plugin URI:
 Description:
-Version: 1.1.0
+Version: 1.2.0
 Author: Kristian Primdal
 Author URI: https://speedly.dk
 Text Domain: ailt-wp
