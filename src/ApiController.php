@@ -94,6 +94,11 @@ class ApiController
             add_post_meta($post_id, 'ailt_id', $data->article_id);
         }
 
+        if (!empty($data->featured_image)) {
+            $attachment_id = $this->download_image($data->featured_image->url, $post_id);
+            set_post_thumbnail($post_id, $attachment_id);
+        }
+
         $content = $this->downloadImages($data->content, $post_id);
         wp_update_post([
             'ID' => $post_id,
@@ -104,11 +109,6 @@ class ApiController
         $category = get_category($category_id);
         if ($category) {
             wp_set_post_categories($post_id, [$category_id]);
-        }
-
-        if (!empty($data->featured_image)) {
-            $attachment_id = $this->download_image($data->featured_image->url, $post_id);
-            set_post_thumbnail($post_id, $attachment_id);
         }
 
         // if the site has Yoast SEO installed
@@ -136,15 +136,6 @@ class ApiController
         $doc->encoding = "UTF-8";
         $images = $doc->getElementsByTagName("img");
 
-        function generate_nice_filename($url)
-        {
-            $path_info = pathinfo(parse_url($url, PHP_URL_PATH));
-            $basename = sanitize_file_name($path_info["filename"]);
-            $extension = $path_info["extension"];
-            $date = date("Ymd_His");
-            return $basename . "_" . $date . "." . $extension;
-        }
-
         foreach ($images as $image) {
             $src = $image->getAttribute("src");
             if (strpos($src, "http") === 0) {
@@ -167,6 +158,7 @@ class ApiController
         $image_content = file_get_contents($src);
         $image_md5 = md5($image_content);
         $upload_dir = wp_upload_dir();
+        $title = get_post_field("post_title", $post_id);
 
         // Check if the image already exists in the database
         global $wpdb;
@@ -181,7 +173,12 @@ class ApiController
             return $existing_attachment_id;
         }
 
-        $nice_filename = generate_nice_filename($src);
+        $nice_filename = sanitize_title($title);
+        $extension = pathinfo($src, PATHINFO_EXTENSION);
+        $extension = explode("?", $extension)[0];
+        $nice_filename = $nice_filename . "." . $extension;
+        $nice_filename = sanitize_file_name($nice_filename);
+        $nice_filename = wp_unique_filename($upload_dir["path"], $nice_filename);
         $image_path = $upload_dir["path"] . "/" . $nice_filename;
 
         file_put_contents($image_path, $image_content);
