@@ -95,7 +95,7 @@ class ApiController
         }
 
         if (!empty($data->featured_image)) {
-            $attachment_id = $this->download_image($data->featured_image->url, $post_id);
+            $attachment_id = $this->download_image($data->featured_image->url, $post_id, get_the_title($post_id));
             set_post_thumbnail($post_id, $attachment_id);
         }
 
@@ -139,7 +139,7 @@ class ApiController
         foreach ($images as $image) {
             $src = $image->getAttribute("src");
             if (strpos($src, "http") === 0) {
-                $attachment_id = $this->download_image($src, $post_id);
+                $attachment_id = $this->download_image($src, $post_id, $image->getAttribute("alt"));
                 $image->setAttribute(
                     "src",
                     wp_get_attachment_url($attachment_id)
@@ -153,7 +153,7 @@ class ApiController
         return $content;
     }
 
-    public function download_image($src, $post_id)
+    public function download_image($src, $post_id, $alt = "")
     {
         $image_content = file_get_contents($src);
         $image_md5 = md5($image_content);
@@ -186,7 +186,7 @@ class ApiController
         $wp_filetype = wp_check_filetype(basename($image_path), null);
         $attachment = [
             "post_mime_type" => $wp_filetype["type"],
-            "post_title" => sanitize_file_name(basename($image_path)),
+            "post_title" => $alt,
             "post_content" => "",
             "post_status" => "inherit"
         ];
@@ -195,6 +195,7 @@ class ApiController
         $attach_data = wp_generate_attachment_metadata($attach_id, $image_path);
         wp_update_attachment_metadata($attach_id, $attach_data);
         add_post_meta($attach_id, "_image_md5", $image_md5);
+        add_post_meta($attach_id, "_wp_attachment_image_alt", $alt);
 
         return $attach_id;
     }
