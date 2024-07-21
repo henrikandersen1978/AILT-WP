@@ -10,6 +10,7 @@ class ApiController
         add_action('template_redirect', [$this, 'webhook']);
         add_action('template_redirect', [$this, 'categories']);
         add_action('template_redirect', [$this, 'authors']);
+        add_action('ailt_download_image', [$this, 'cron_download_image'], 10, 2);
     }
 
     public function categories()
@@ -86,7 +87,7 @@ class ApiController
             $post_id = wp_insert_post([
                 'post_author' => $data->author_id,
                 'post_title' => $data->title,
-                'post_status' => 'publish',
+                'post_status' => 'draft',
                 'post_content' => $data->content,
                 'post_type' => 'post',
                 'post_date' => $data->publish_at ? date('Y-m-d H:i:s', strtotime($data->publish_at)) : date('Y-m-d H:i:s'),
@@ -99,11 +100,7 @@ class ApiController
             set_post_thumbnail($post_id, $attachment_id);
         }
 
-        $content = $this->downloadImages($data->content, $post_id);
-        wp_update_post([
-            'ID' => $post_id,
-            'post_content' => $content
-        ]);
+        $this->downloadImages($data->content, $post_id);
 
         $category_id = $data->category_id;
         $category = get_category($category_id);
@@ -136,20 +133,21 @@ class ApiController
         $doc->encoding = "UTF-8";
         $images = $doc->getElementsByTagName("img");
 
+        $i = 1;
         foreach ($images as $image) {
             $src = $image->getAttribute("src");
             if (strpos($src, "http") === 0) {
-                $attachment_id = $this->download_image($src, $post_id, $image->getAttribute("alt"));
-                $image->setAttribute(
-                    "src",
-                    wp_get_attachment_url($attachment_id)
+                as_schedule_single_action(
+                    time() + ($i * 5),
+                    "ailt_download_image",
+                    [
+                        $src,
+                        $post_id
+                    ]
                 );
+                $i++;
             }
         }
-        $content = $doc->saveHTML($doc->getElementsByTagName("body")->item(0));
-        $content = str_replace("<body>", "", $content);
-        $content = str_replace("</body>", "", $content);
-
         return $content;
     }
 
@@ -219,5 +217,54 @@ class ApiController
         $data = json_decode($body, true);
 
         return isset($data['valid']) && $data['valid'] === true;
+    }
+
+    public function cron_download_image($src, $post_id)
+    {
+
+        $content = get_post_field("post_content", $post_id);
+
+        $doc = new \DOMDocument();
+        $doc->loadHTML('<?xml encoding="utf-8" ?>' . $content);
+        $doc->encoding = "UTF-8";
+        $images = $doc->getElementsByTagName("img");
+
+        $blog_url = get_bloginfo('url');
+        $all_download = true;
+        foreach ($images as $image) {
+            $original = $image->getAttribute("src");
+
+            if($src == $original) {
+                $attachment_id = $this->download_image($src, $post_id, $image->getAttribute("alt"));
+                $new_src = wp_get_attachment_url($attachment_id);
+                $image->setAttribute(
+                    "src",
+                    $new_src
+                );
+
+                $original = $new_src;
+            }
+
+            if (strpos($original, $blog_url) === false) {
+                $all_download = false;
+            }
+        }
+
+        $content = $doc->saveHTML($doc->getElementsByTagName("body")->item(0));
+        $content = str_replace("<body>", "", $content);
+        $content = str_replace("</body>", "", $content);
+
+        if ($all_download) {
+            wp_update_post([
+                'ID' => $post_id,
+                'post_status' => 'publish',
+                'post_content' => $content,
+            ]);
+        } else {
+            wp_update_post([
+                'ID' => $post_id,
+                'post_content' => $content,
+            ]);
+        }
     }
 }
