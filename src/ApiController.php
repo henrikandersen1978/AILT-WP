@@ -237,6 +237,7 @@ class ApiController
             if($src == $original) {
                 $attachment_id = $this->download_image($src, $post_id, $image->getAttribute("alt"));
                 $new_src = wp_get_attachment_url($attachment_id);
+                $new_src = str_replace("http://", "https://", $new_src);
                 $image->setAttribute(
                     "src",
                     $new_src
