@@ -95,12 +95,20 @@ class ApiController
             add_post_meta($post_id, 'ailt_id', $data->article_id);
         }
 
+        update_post_meta($post_id, 'publish_at', $data->publish_at);
+
         if (!empty($data->featured_image)) {
             $attachment_id = $this->download_image($data->featured_image->url, $post_id, get_the_title($post_id));
             set_post_thumbnail($post_id, $attachment_id);
         }
 
-        $this->downloadImages($data->content, $post_id);
+        $images = $this->downloadImages($data->content, $post_id);
+        if(empty($images)) {
+            wp_update_post([
+                'ID' => $post_id,
+                'post_status' => 'publish',
+            ]);
+        }
 
         $category_id = $data->category_id;
         $category = get_category($category_id);
@@ -148,12 +156,13 @@ class ApiController
                 $i++;
             }
         }
-        return $content;
+
+        return $images;
     }
 
     public function download_image($src, $post_id, $alt = "")
     {
-        $image_content = file_get_contents($src);
+        $image_content = $this->fetchContent($src);
         $image_md5 = md5($image_content);
         $upload_dir = wp_upload_dir();
         $title = get_post_field("post_title", $post_id);
@@ -267,5 +276,20 @@ class ApiController
                 'post_content' => $content,
             ]);
         }
+    }
+
+    private function fetchContent($url) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FAILONERROR, true); // to ensure proper error handling
+        $data = curl_exec($ch);
+
+        if (curl_errno($ch)) {
+            echo "cURL error: " . curl_error($ch);
+        }
+
+        curl_close($ch);
+        return $data;
     }
 }
