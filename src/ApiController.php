@@ -67,7 +67,7 @@ class ApiController
         $json = file_get_contents('php://input');
         $data = json_decode($json);
 
-        if (empty($data->nonce_callback_url) || empty($data->article_id) || !$this->validate_nonce_with_server($data->nonce_callback_url, $data->article_id)) {
+        if (empty($data->nonce_callback_endpoint) || empty($data->article_id) || !$this->validate_nonce_with_server($data->nonce_callback_endpoint, $data->article_id)) {
             wp_send_json_error('Invalid request', 400);
             return;
         }
@@ -207,9 +207,9 @@ class ApiController
         return $attach_id;
     }
 
-    private static function validate_nonce_with_server($nonce_callback_url, $article_id)
+    private static function validate_nonce_with_server($nonce_callback_endpoint, $article_id)
     {
-        $response = wp_remote_post($nonce_callback_url, [
+        $response = wp_remote_post('https://ailt.pilanto.dk'.$nonce_callback_endpoint, [
             'body' => json_encode([
                 'article_id' => $article_id,
             ]),
