@@ -67,10 +67,10 @@ class ApiController
         $json = file_get_contents('php://input');
         $data = json_decode($json);
 
-        // if (empty($data->nonce_callback_url) || empty($data->article_id) || !$this->validate_nonce_with_server($data->nonce_callback_url, $data->article_id)) {
-        //     wp_send_json_error('Invalid request', 400);
-        //     return;
-        // }
+        if (empty($data->nonce_callback_url) || empty($data->article_id) || !$this->validate_nonce_with_server($data->nonce_callback_url, $data->article_id)) {
+            wp_send_json_error('Invalid request', 400);
+            return;
+        }
 
         global $wpdb;
         $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM $wpdb->postmeta WHERE meta_key = 'ailt_id' AND meta_value = %s", $data->article_id));
