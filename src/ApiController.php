@@ -80,7 +80,6 @@ class ApiController
                 'ID' => $post_id,
                 'post_title' => $data->title,
                 'post_content' => $data->content,
-                'post_date' => $data->publish_at ? date('Y-m-d H:i:s', strtotime($data->publish_at)) : date('Y-m-d H:i:s'),
                 'post_author' => $data->author_id,
             ]);
         } else {
@@ -90,7 +89,6 @@ class ApiController
                 'post_status' => 'draft',
                 'post_content' => $data->content,
                 'post_type' => 'post',
-                'post_date' => $data->publish_at ? date('Y-m-d H:i:s', strtotime($data->publish_at)) : date('Y-m-d H:i:s'),
             ]);
             add_post_meta($post_id, 'ailt_id', $data->article_id);
         }
@@ -104,10 +102,7 @@ class ApiController
 
         $images = $this->downloadImages($data->content, $post_id);
         if($images->length == 0) {
-            wp_update_post([
-                'ID' => $post_id,
-                'post_status' => 'publish',
-            ]);
+            $this->publishPost($post_id);
         }
 
         $category_id = $data->category_id;
@@ -264,18 +259,42 @@ class ApiController
         $content = str_replace("<body>", "", $content);
         $content = str_replace("</body>", "", $content);
 
+        wp_update_post([
+            'ID' => $post_id,
+            'post_content' => $content,
+        ]);
+
         if ($all_download) {
-            wp_update_post([
-                'ID' => $post_id,
-                'post_status' => 'publish',
-                'post_content' => $content,
-            ]);
-        } else {
-            wp_update_post([
-                'ID' => $post_id,
-                'post_content' => $content,
-            ]);
+            $this->publishPost($post_id);
         }
+    }
+
+    public function publishPost($post_id)
+    {
+        $publish_at = get_post_meta($post_id, 'publish_at', true);
+        if ($publish_at) {
+            $cet = new \DateTime($publish_at, new \DateTimeZone('CET'));
+            $cet->setTimezone(new \DateTimeZone('GMT'));
+            $publish_at_gmt = $cet->format('Y-m-d H:i:s');
+
+            $publish_at_date = $cet->setTimezone(new \DateTimeZone('CET'))->format('Y-m-d H:i:s');
+        } else {
+            $publish_at_date = date("Y-m-d H:i:s");
+            $publish_at_gmt = gmdate('Y-m-d H:i:s');
+        }
+
+        $status = 'publish';
+        if (strtotime($publish_at) > time()) {
+            $status = 'future';
+        }
+
+        wp_update_post([
+            'ID' => $post_id,
+            'post_status' => $status,
+            "post_date" => $publish_at_date,
+            "post_date_gmt" => $publish_at_gmt,
+            'edit_date' => true,
+        ]);
     }
 
     private function fetchContent($url)
