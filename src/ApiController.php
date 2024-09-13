@@ -96,12 +96,12 @@ class ApiController
         update_post_meta($post_id, 'publish_at', $data->publish_at);
 
         if (!empty($data->featured_image)) {
-            $attachment_id = $this->download_image($data->featured_image->url, $post_id, get_the_title($post_id));
+            $attachment_id = $this->download_image($data->featured_image->url, $post_id, $data->featured_image->alt);
             set_post_thumbnail($post_id, $attachment_id);
         }
 
         $images = $this->downloadImages($data->content, $post_id);
-        if($images->length == 0) {
+        if ($images->length == 0) {
             $this->publishPost($post_id);
         }
 
@@ -238,7 +238,7 @@ class ApiController
         foreach ($images as $image) {
             $original = $image->getAttribute("src");
 
-            if($src == $original) {
+            if ($src == $original) {
                 $attachment_id = $this->download_image($src, $post_id, $image->getAttribute("alt"));
                 $new_src = wp_get_attachment_url($attachment_id);
                 $new_src = str_replace("http://", "https://", $new_src);
