@@ -124,7 +124,7 @@ class ApiController
         echo json_encode([
             'status' => 'success',
             'post_id' => $post_id,
-            'url' => get_permalink($post_id),
+            'url' => $this->get_post_url_with_slug($post_id),
         ]);
         die;
     }
@@ -295,6 +295,30 @@ class ApiController
             "post_date_gmt" => $publish_at_gmt,
             'edit_date' => true,
         ]);
+    }
+
+    private function get_post_url_with_slug($post_id)
+    {
+        $post = get_post($post_id);
+        if (!$post) {
+            return '';
+        }
+
+        // If post is published, use regular permalink
+        if ($post->post_status === 'publish') {
+            return get_permalink($post_id);
+        }
+
+        // For unpublished posts, build URL with slug
+        $home_url = trailingslashit(home_url());
+        
+        // Get the post slug, if empty create one from title
+        $slug = $post->post_name;
+        if (empty($slug)) {
+            $slug = sanitize_title($post->post_title);
+        }
+        
+        return $home_url . $slug . '/';
     }
 
     private function fetchContent($url)
